@@ -5,14 +5,19 @@ import re
 import unicodedata # 全角半角変換用
 from collections import defaultdict
 
+
 # --- 設定と定数 ---
 # Excelファイルのパス。
 # ここにあなたの環境での「契約情報まとめ_単一シート.xlsx」の絶対パスを指定してください。
 # 例: r"C:\Users\ts-kanta.yamamura\Documents\03_契約書回り\11_save\契約情報まとめ_単一シート.xlsx"
-EXCEL_FILE_PATH = r"C:\Users\ts-kanta.yamamura\Documents\03_契約書回り\11_save\契約情報まとめ_単一シート.xlsx"
+# 【変更点】Streamlit Cloud上で動作させるため、GitHubリポジトリ内の相対パスを指定
+# Excelファイルはリポジトリのルート直下にあるものと仮定します。
+EXCEL_FILE_PATH = "契約情報まとめ_単一シート.xlsx"
+
 
 # 検索対象とする列
 SEARCH_COLUMNS = ['項目', '期間/備考']
+
 
 # 表記揺れマッピング (ユーザー入力 -> 内部検索キーワード)
 # Excel内の表記に合わせて調整してください。
@@ -33,11 +38,13 @@ KEYWORD_MAPPING = {
     'tracking system': 'tracking system',
     'トラッキングシステム': 'tracking system',
 
+
     # Trajekt Arc関連
     'トラジェクト': 'trajekt',
     'trajekt': 'trajekt',
     'ロボット': 'ロボット',
     'robot': 'robot',
+
 
     # 費用・金額関連
     '費用': '金額', 
@@ -49,6 +56,7 @@ KEYWORD_MAPPING = {
     '契約期間': '契約期間',
     '期間': '期間',
     '有効期間': '有効期間',
+
 
     # 年度関連 (Excel内の表記に合わせる)
     '2021年': '2021年',
@@ -63,6 +71,7 @@ KEYWORD_MAPPING = {
     '2024': '2024年',
     '2025': '2025年',
     '2026': '2026年',
+
 
     # その他
     'ライセンス': 'ライセンス',
@@ -81,8 +90,10 @@ KEYWORD_MAPPING = {
     '残金': '残金',
 }
 
+
 # カテゴリ検索用のキーワード
 CATEGORY_KEYWORDS = ['カテゴリ', 'カテゴリー', '分類', '一覧', '種類']
+
 
 # --- ContractInfoBot クラスの定義 ---
 class ContractInfoBot:
@@ -90,6 +101,7 @@ class ContractInfoBot:
         self.file_path = file_path
         self.df = None
         self.load_data()
+
 
     def load_data(self):
         """Excelファイルを読み込み、前処理を行う"""
@@ -106,10 +118,12 @@ class ContractInfoBot:
             # 項目も小文字にしておく (カテゴリ判定用)
             self.df['項目_lower'] = self.df['項目'].astype(str).str.lower()
 
+
             # デバッグ用に最初の数行をサイドバーに表示
             # st.sidebar.write("--- Loaded Data Head ---")
             # st.sidebar.dataframe(self.df.head())
             # st.sidebar.write("------------------------")
+
 
         except FileNotFoundError:
             st.error(f"エラー: Excelファイルが見つかりません。パスを確認してください: {self.file_path}")
@@ -117,6 +131,7 @@ class ContractInfoBot:
         except Exception as e:
             st.error(f"エラー: Excelファイルの読み込み中に問題が発生しました: {e}")
             st.info(f"詳細: {e}")
+
 
     def _normalize_text(self, text):
         """テキストを正規化（全角半角、大文字小文字、記号除去）"""
@@ -130,6 +145,7 @@ class ContractInfoBot:
         # 連続するスペースを一つにする
         text = re.sub(r'\s+', ' ', text).strip()
         return text
+
 
     def _extract_keywords(self, query):
         """ユーザー入力から検索キーワードを抽出し、マッピングを適用する"""
@@ -156,6 +172,7 @@ class ContractInfoBot:
         # 重複キーワードを除去
         final_keywords = list(dict.fromkeys(mapped_keywords))
 
+
         # デバッグ出力
         st.sidebar.write(f"--- Debug Info ---")
         st.sidebar.write(f"Original Query: {query}")
@@ -164,7 +181,9 @@ class ContractInfoBot:
         st.sidebar.write(f"Mapped Keywords: {final_keywords}")
         st.sidebar.write(f"------------------")
 
+
         return final_keywords
+
 
     def search_info(self, query):
         """
@@ -173,11 +192,14 @@ class ContractInfoBot:
         if self.df is None:
             return "データが読み込まれていないため、検索できません。"
 
+
         # クエリから検索キーワードを抽出
         keywords = self._extract_keywords(query)
 
+
         if not keywords: # キーワードが抽出できなかった場合
             return f"質問の意図を理解できませんでした。もう少し具体的な単語で質問してください。"
+
 
         # 全てのキーワードを含む行を検索する（AND検索）
         # search_text_normalized 列に対して検索
@@ -190,8 +212,10 @@ class ContractInfoBot:
         
         results = filtered_df
 
+
         # ヘッダー行を除外
         results = results[~results['項目'].astype(str).str.startswith('■')]
+
 
         if results.empty:
             # 検索結果が見つからなかった場合のヒント
@@ -202,6 +226,7 @@ class ContractInfoBot:
                 hint_message = "関連情報が見つかりませんでした。別のキーワードや表現をお試しください。"
             return f"'{query}' に関連する情報は見つかりませんでした。\n\n{hint_message}"
 
+
         response_parts = []
         # 検索結果が多すぎる場合のヒント
         if len(results) > 10: # 例えば10件以上は多すぎると判断
@@ -210,10 +235,11 @@ class ContractInfoBot:
             # 上位5件のみ表示
             results = results.head(5) 
 
+
         response_parts.append(f"'{query}' に関連する情報が見つかりました:\n")
         
         for index, row in results.iterrows():
-            response_parts.append(f"  **項目**: {row['項目']}")
+            response_parts.append(f"   **項目**: {row['項目']}")
             
             # 金額表示を整形 (通貨と税に関する情報を明示)
             amount = str(row['金額'])
@@ -227,10 +253,11 @@ class ContractInfoBot:
             elif 'usd' in amount and ('usd' not in query_lower and 'ドル' not in query_lower):
                 amount += " (米ドル)"
             
-            response_parts.append(f"  **金額**: {amount}")
-            response_parts.append(f"  **期間/備考**: {row['期間/備考']}")
-            response_parts.append("  ---")
+            response_parts.append(f"   **金額**: {amount}")
+            response_parts.append(f"   **期間/備考**: {row['期間/備考']}")
+            response_parts.append("   ---")
         return "\n".join(response_parts)
+
 
     def get_all_categories(self):
         """
@@ -246,7 +273,9 @@ class ContractInfoBot:
         else:
             return "カテゴリが見つかりませんでした。"
 
+
 # --- Streamlit アプリケーションの構築 ---
+
 
 # Streamlit のページ設定
 st.set_page_config(page_title="契約情報チャットボット", layout="centered", initial_sidebar_state="expanded")
@@ -261,15 +290,18 @@ if 'bot' not in st.session_state:
     st.session_state.bot = ContractInfoBot(EXCEL_FILE_PATH)
     st.session_state.messages = [] # チャット履歴を保持
 
+
 # Excelファイルが読み込まれていない場合は処理を中断
 if st.session_state.bot.df is None:
     st.warning("Excelファイルの読み込みに失敗しているため、チャットボットは利用できません。")
     st.stop() # ここでアプリの実行を停止
 
+
 # チャット履歴の表示
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"]) # Markdown表示に対応
+
 
 # ユーザーからの入力
 if prompt := st.chat_input("質問を入力してください..."):
@@ -277,6 +309,7 @@ if prompt := st.chat_input("質問を入力してください..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt) # Markdown表示に対応
+
 
     # ボットの応答を生成
     with st.chat_message("assistant"):
